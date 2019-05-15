@@ -1,3 +1,8 @@
+//! Library providing A* pathfinding utilities.
+
+#![feature(test)]
+extern crate test;
+
 use hibitset::BitSet;
 
 /// A position in the grid.
@@ -101,7 +106,7 @@ impl<B: Weighted + Default + Clone> Map<B> {
         }
 
         // Right
-        if pos.0 < self.size.0 {
+        if pos.0 < self.size.0 - 1{
             res.push(self.get_index_for_position(pos.0 + 1, pos.1));
         }
 
@@ -111,7 +116,7 @@ impl<B: Weighted + Default + Clone> Map<B> {
         }
 
         // Down
-        if pos.1 < self.size.1 {
+        if pos.1 < self.size.1 - 1 {
             res.push(self.get_index_for_position(pos.0, pos.1 + 1));
         }
 
@@ -197,6 +202,9 @@ impl<B: Weighted + Default + Clone> Map<B> {
 
 #[cfg(test)]
 mod tests {
+    use test::Bencher;
+    use rand::prelude::*;
+    
     use crate::*;
 
     #[test]
@@ -215,5 +223,26 @@ mod tests {
         let from = (2, 4);
         let to = (2, 77);
         map.shortest_path(from, to).unwrap();
+    }
+
+
+    #[bench]
+    fn bench_shortest_path(b: &mut Bencher) {
+        let map = Map::<f32>::new(50, 50);
+        let from = (2, 4);
+        let to = (20, 48);
+        b.iter(|| {
+            let _shortest = map.shortest_path(from, to).unwrap();
+        })
+    }
+
+    #[bench]
+    fn bench_tile_access(b: &mut Bencher) {
+        let map = Map::<f32>::new(200, 200);
+        let mut rng = thread_rng();
+        b.iter(|| {
+            let idx = rng.gen_range(0, 199);
+            let _id = map.get_grid(idx, idx);
+        })
     }
 }
