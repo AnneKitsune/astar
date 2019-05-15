@@ -1,3 +1,5 @@
+//! Library providing A* pathfinding utilities.
+
 use hibitset::BitSet;
 
 /// A position in the grid.
@@ -25,35 +27,35 @@ impl Weighted for f32 {
 /// # Generics
 /// B: The type of square of which the map in composed. See the `Weighted` trait for more
 /// information.
-pub struct Map<B: Weighted> {
-    map: Vec<B>,
+pub struct Map {
+    map: Vec<f32>,
     size: (usize, usize),
 }
 
-impl<B: Weighted + Default + Clone> Map<B> {
+impl Map {
     
     /// Create a new map of the specified size.
     pub fn new(size_x: usize, size_y: usize) -> Self {
         Map {
-            map: vec![B::default(); size_x * size_y],
+            map: vec![1.0; size_x * size_y],
             size: (size_x, size_y),
         }
     }
 
     /// Get the grid at the specified position.
-    pub fn get_grid(&self, x: usize, y: usize) -> &B {
+    pub fn get_grid(&self, x: usize, y: usize) -> &f32 {
         let idx = self.get_index_for_position(x, y);
         self.map.get(idx).unwrap()
     }
 
     /// Get the grid mutably at the specified position.
-    pub fn get_grid_mut(&mut self, x: usize, y: usize) -> &mut B {
+    pub fn get_grid_mut(&mut self, x: usize, y: usize) -> &mut f32 {
         let idx = self.get_index_for_position(x, y);
         self.map.get_mut(idx).unwrap()
     }
 
     /// Inserts a grid element at the specified position.
-    pub fn insert_grid(&mut self, x: usize, y: usize, grid: B) {
+    pub fn insert_grid(&mut self, x: usize, y: usize, grid: f32) {
         let idx = self.get_index_for_position(x, y);
         *self.map.get_mut(idx).unwrap() = grid;
     }
@@ -201,7 +203,7 @@ mod tests {
 
     #[test]
     fn astar() {
-        let map = Map::<f32>::new(20, 20);
+        let map = Map::new(20, 20);
         let from = (2, 4);
         let to = (2, 7);
         let shortest = map.shortest_path(from, to).unwrap();
@@ -211,7 +213,7 @@ mod tests {
     #[should_panic]
     #[test]
     fn out_of_bounds() {
-        let map = Map::<f32>::new(20, 20);
+        let map = Map::new(20, 20);
         let from = (2, 4);
         let to = (2, 77);
         map.shortest_path(from, to).unwrap();
