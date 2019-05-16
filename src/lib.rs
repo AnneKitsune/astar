@@ -9,58 +9,58 @@ use hibitset::BitSet;
 /// Expressed as a tuple of the (x, y) coordinates.
 pub type Position = (usize, usize);
 
-/// The weight indicates how easy it is to travel a square.
-/// A weight of 1 indicates that the "length" of the square is 1.
-/// A weight of 0 indicates a square of infinite length (that cannot be traversed). A wall for
-/// example would have a weight of 0.
-/// A weight of 2 indicates that the length of the square is 0.5 (2x travel speed).
-pub trait Weighted {
+/// The InverseDifficulty indicates how easy it is to travel a square.
+/// An inverse difficulty of 1 indicates that the "length" of the square is 1.
+/// An inverse difficulty of 0 indicates a square of infinite length (that cannot be traversed). A wall for
+/// example would have a value of 0.
+/// An inverse difficulty of 2 indicates that the length of the square is 0.5 (2x travel speed).
+pub trait InverseDifficulty {
     fn get_weight(&self) -> f32;
 }
 
-impl Weighted for f32 {
+impl InverseDifficulty for f32 {
     fn get_weight(&self) -> f32 {
         *self
     }
 }
 
-/// A map is a fixed size grid composed of squares.
+/// A Grid is a fixed size 2d grid composed of equally sized squares.
 /// Each square is of type B (the generic parameter).
 ///
 /// # Generics
-/// B: The type of square of which the map in composed. See the `Weighted` trait for more
+/// B: The type of square of which the grid in composed. See the `InverseDifficulty` trait for more
 /// information.
-pub struct Map<B: Weighted> {
-    map: Vec<B>,
+pub struct Grid<B: InverseDifficulty> {
+    grid: Vec<B>,
     size: (usize, usize),
 }
 
-impl<B: Weighted + Default + Clone> Map<B> {
+impl<B: InverseDifficulty + Default + Clone> Grid<B> {
     
-    /// Create a new map of the specified size.
+    /// Create a new grid of the specified size.
     pub fn new(size_x: usize, size_y: usize) -> Self {
-        Map {
-            map: vec![B::default(); size_x * size_y],
+        Grid {
+            grid: vec![B::default(); size_x * size_y],
             size: (size_x, size_y),
         }
     }
 
-    /// Get the grid at the specified position.
+    /// Get the square at the specified position.
     pub fn get_grid(&self, x: usize, y: usize) -> &B {
         let idx = self.get_index_for_position(x, y);
-        self.map.get(idx).unwrap()
+        self.grid.get(idx).unwrap()
     }
 
-    /// Get the grid mutably at the specified position.
+    /// Get the square mutably at the specified position.
     pub fn get_grid_mut(&mut self, x: usize, y: usize) -> &mut B {
         let idx = self.get_index_for_position(x, y);
-        self.map.get_mut(idx).unwrap()
+        self.grid.get_mut(idx).unwrap()
     }
 
-    /// Inserts a grid element at the specified position.
+    /// Inserts a square element at the specified position.
     pub fn insert_grid(&mut self, x: usize, y: usize, grid: B) {
         let idx = self.get_index_for_position(x, y);
-        *self.map.get_mut(idx).unwrap() = grid;
+        *self.grid.get_mut(idx).unwrap() = grid;
     }
 
     fn get_index_for_position(&self, x: usize, y: usize) -> usize {
@@ -96,7 +96,7 @@ impl<B: Weighted + Default + Clone> Map<B> {
         0.0
     }
 
-    fn neighbors_of(&self, idx: usize) -> Vec<usize> {
+    pub(crate) fn neighbors_of(&self, idx: usize) -> Vec<usize> {
         let mut res = vec![];
         let pos = self.get_position_for_index(idx);
         
@@ -123,6 +123,9 @@ impl<B: Weighted + Default + Clone> Map<B> {
         res
     }
 
+    /// Finds the shortest path between two positions if it exists.
+    /// The returned position list (path) will be formed like so:
+    /// [from, intermediate_1, intermediate_2, ..., intermediate_n, to]
     pub fn shortest_path(&self, from: Position, to: Position) -> Option<Vec<Position>> {
         let max_index = self.max_index();
         let node_count = max_index + 1;
@@ -186,6 +189,7 @@ impl<B: Weighted + Default + Clone> Map<B> {
         None
     }
 
+    /// Reconstruct the paths that was traversed to come to the current position.
     fn reconstruct_path(&self, came_from: Vec<Option<usize>>, current: usize) -> Vec<Position> {
         let mut total_path = vec![self.get_position_for_index(current)];
         let mut current = current;
@@ -209,40 +213,61 @@ mod tests {
 
     #[test]
     fn astar() {
-        let map = Map::<f32>::new(20, 20);
+        let grid = Grid::<f32>::new(20, 20);
         let from = (2, 4);
         let to = (2, 7);
-        let shortest = map.shortest_path(from, to).unwrap();
+        let shortest = grid.shortest_path(from, to).unwrap();
         assert_eq!(shortest, vec![(2, 4), (2, 5), (2, 6), (2, 7)]);
+    }
+
+    #[test]
+    fn neighbors() {
+        let grid = Grid::<f32>::new(3, 3);
+        let neighbors1 = grid.neighbors_of(4);
+        assert_eq!(neighbors1, vec![3, 5, 1, 7]);
+        let neighbors2 = grid.neighbors_of(0);
+        assert_eq!(neighbors2, vec![1, 3]);
     }
 
     #[should_panic]
     #[test]
     fn out_of_bounds() {
-        let map = Map::<f32>::new(20, 20);
+        let grid = Grid::<f32>::new(20, 20);
         let from = (2, 4);
         let to = (2, 77);
-        map.shortest_path(from, to).unwrap();
+        grid.shortest_path(from, to).unwrap();
     }
 
 
     #[bench]
     fn bench_shortest_path(b: &mut Bencher) {
-        let map = Map::<f32>::new(50, 50);
+        let grid = Grid::<f32>::new(50, 50);
         let from = (2, 4);
         let to = (20, 48);
         b.iter(|| {
-            let _shortest = map.shortest_path(from, to).unwrap();
+            let _shortest = grid.shortest_path(from, to).unwrap();
         })
     }
 
     #[bench]
     fn bench_tile_access(b: &mut Bencher) {
-        let map = Map::<f32>::new(200, 200);
+        let grid = Grid::<f32>::new(200, 200);
         let mut rng = thread_rng();
         b.iter(|| {
             let idx = rng.gen_range(0, 199);
-            let _id = map.get_grid(idx, idx);
+            let _id = grid.get_grid(idx, idx);
+        })
+    }
+
+
+    #[bench]
+    fn bench_distance_between(b: &mut Bencher) {
+        let grid = Grid::<f32>::new(4,4);
+        let from = 1;
+        let to = 9;
+        b.iter(|| {
+            let dist = grid.dist_between(from, to);
+            assert_eq!(dist, 2.0);
         })
     }
 }
